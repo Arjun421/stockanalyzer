@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stock Tracker</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+
+    header {
+      background: #161b22;
+      padding: 20px 40px;
+      border-bottom: 1px solid #30363d;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { font-size: 1.5rem; color: #58a6ff; }
+    header span { font-size: 0.85rem; color: #8b949e; }
+
+    .container { padding: 30px 40px; }
+
+    .refresh-btn {
+      background: #238636;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      margin-bottom: 24px;
+    }
+    .refresh-btn:hover { background: #2ea043; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 20px;
+      transition: transform 0.2s;
+    }
+    .card:hover { transform: translateY(-3px); border-color: #58a6ff; }
+
+    .card .symbol { font-size: 1.3rem; font-weight: bold; color: #58a6ff; }
+    .card .price { font-size: 1.6rem; font-weight: bold; margin: 8px 0; }
+    .card .change { font-size: 0.9rem; font-weight: 600; }
+    .card .meta { font-size: 0.78rem; color: #8b949e; margin-top: 10px; }
+
+    .up { color: #3fb950; }
+    .down { color: #f85149; }
+
+    .loader { text-align: center; padding: 60px; color: #8b949e; font-size: 1.1rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📈 Stock Tracker</h1>
+    <span id="last-updated">Loading...</span>
+  </header>
+
+  <div class="container">
+    <button class="refresh-btn" onclick="loadStocks()">🔄 Refresh Prices</button>
+    <div class="grid" id="grid">
+      <div class="loader">Fetching live prices...</div>
+    </div>
+  </div>
+
+  <script>
+    async function loadStocks() {
+      document.getElementById("grid").innerHTML = '<div class="loader">Fetching live prices...</div>';
+      const res = await fetch("/api/stocks");
+      const stocks = await res.json();
+      const grid = document.getElementById("grid");
+      grid.innerHTML = "";
+
+      stocks.forEach(s => {
+        if (!s.price || isNaN(s.price)) return;
+        const isUp = s.change >= 0;
+        const arrow = isUp ? "▲" : "▼";
+        const cls = isUp ? "up" : "down";
+        grid.innerHTML += `
+          <div class="card">
+            <div class="symbol">${s.symbol}</div>
+            <div class="price">$${s.price}</div>
+            <div class="change ${cls}">${arrow} $${s.change} (${s.change_pct}%)</div>
+            <div class="meta">High: $${s.high} &nbsp;|&nbsp; Low: $${s.low}</div>
+            <div class="meta" style="margin-top:6px;">🕐 Updated: ${new Date().toLocaleTimeString()}</div>
+          </div>`;
+      });
+
+      document.getElementById("last-updated").textContent =
+        "Last updated: " + new Date().toLocaleTimeString();
+    }
+
+    loadStocks();
+    // Auto refresh every 60 seconds
+    setInterval(loadStocks, 60000);
+  </script>
+</body>
+</html>

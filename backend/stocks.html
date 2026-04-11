@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Stock Tracker</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', sans-serif; min-height: 100vh; }
+    header { background: #161b22; padding: 20px 40px; border-bottom: 1px solid #30363d; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 1.5rem; color: #58a6ff; }
+    #last-updated { font-size: 0.85rem; color: #8b949e; }
+    .container { padding: 30px 40px; }
+    .refresh-btn { background: #238636; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; margin-bottom: 24px; }
+    .refresh-btn:hover { background: #2ea043; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 20px; transition: transform 0.2s; }
+    .card:hover { transform: translateY(-3px); border-color: #58a6ff; }
+    .symbol { font-size: 1.3rem; font-weight: bold; color: #58a6ff; }
+    .company { font-size: 0.78rem; color: #8b949e; margin-bottom: 8px; }
+    .price { font-size: 1.6rem; font-weight: bold; margin: 6px 0; }
+    .change { font-size: 0.9rem; font-weight: 600; }
+    .meta { font-size: 0.78rem; color: #8b949e; margin-top: 10px; }
+    .up { color: #3fb950; }
+    .down { color: #f85149; }
+    .loader { text-align: center; padding: 60px; color: #8b949e; font-size: 1.1rem; grid-column: 1/-1; }
+    .error { color: #f85149; text-align: center; padding: 20px; grid-column: 1/-1; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📈 Stock Tracker</h1>
+    <span id="last-updated">Loading...</span>
+  </header>
+  <div class="container">
+    <button class="refresh-btn" onclick="loadStocks()">🔄 Refresh Prices</button>
+    <div class="grid" id="grid">
+      <div class="loader">Fetching live prices...</div>
+    </div>
+  </div>
+
+  <script>
+    const TICKERS = [
+      { symbol: "AAPL", name: "Apple" },
+      { symbol: "GOOGL", name: "Alphabet" },
+      { symbol: "TSLA", name: "Tesla" },
+      { symbol: "MSFT", name: "Microsoft" },
+      { symbol: "AMZN", name: "Amazon" },
+      { symbol: "META", name: "Meta" },
+      { symbol: "NVDA", name: "NVIDIA" },
+      { symbol: "NFLX", name: "Netflix" },
+      { symbol: "AMD", name: "AMD" },
+      { symbol: "INTC", name: "Intel" },
+    ];
+
+    async function fetchStock(symbol) {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=2d`;
+      const proxies = [
+        `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+        `https://corsproxy.io/?${encodeURIComponent(url)}`,
+        `https://proxy.cors.sh/${url}`,
+      ];
+
+      let data = null;
+      for (const proxy of proxies) {
+        try {
+          const res = await fetch(proxy);
+          data = await res.json();
+          if (data?.chart?.result) break;
+        } catch (e) { continue; }
+      }
+
+      if (!data?.chart?.result) throw new Error("All proxies failed");
+
+      const meta = data.chart.result[0].meta;
+      const prev = meta.chartPreviousClose;
+      const last = meta.regularMarketPrice;
+      const change = last - prev;
+      const changePct = (change / prev) * 100;
+      return {
+        symbol,
+        price: last.toFixed(2),
+        change: change.toFixed(2),
+        changePct: changePct.toFixed(2),
+        high: meta.regularMarketDayHigh.toFixed(2),
+        low: meta.regularMarketDayLow.toFixed(2),
+      };
+    }
+
+    async function loadStocks() {
+      const grid = document.getElementById("grid");
+      grid.innerHTML = '<div class="loader">Fetching live prices...</div>';
+      document.getElementById("last-updated").textContent = "Updating...";
+
+      const results = await Promise.allSettled(
+        TICKERS.map(t => fetchStock(t.symbol).then(d => ({ ...d, name: t.name })))
+      );
+
+      grid.innerHTML = "";
+      results.forEach(r => {
+        if (r.status === "fulfilled") {
+          const s = r.value;
+          const isUp = parseFloat(s.change) >= 0;
+          const cls = isUp ? "up" : "down";
+          const arrow = isUp ? "▲" : "▼";
+          grid.innerHTML += `
+            <div class="card">
+              <div class="symbol">${s.symbol}</div>
+              <div class="company">${s.name}</div>
+              <div class="price">$${s.price}</div>
+              <div class="change ${cls}">${arrow} $${s.change} (${s.changePct}%)</div>
+              <div class="meta">High: $${s.high} &nbsp;|&nbsp; Low: $${s.low}</div>
+            </div>`;
+        }
+      });
+
+      if (!grid.innerHTML) {
+        grid.innerHTML = '<div class="error">Could not load prices. Try refreshing.</div>';
+      }
+
+      document.getElementById("last-updated").textContent =
+        "Last updated: " + new Date().toLocaleTimeString();
+    }
+
+    loadStocks();
+  </script>
+</body>
+</html>
