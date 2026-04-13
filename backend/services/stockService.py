@@ -4,8 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 TICKERS = [
     "AAPL", "GOOGL", "TSLA", "MSFT", "AMZN", "META", "NVDA", "NFLX", "AMD", "INTC",
-    "UBER", "LYFT", "SNAP", "SPOT", "XYZ", "PYPL", "SHOP", "ZM", "CRM",
-    "BABA", "JNJ", "JPM", "BAC", "GS", "V", "MA", "DIS", "BRK-B", "XOM", "COIN"
+    "JPM", "BAC", "V", "MA", "DIS", "XOM", "COIN", "PYPL", "SHOP", "CRM"
 ]
 
 def safe(val, decimals=2):
@@ -54,18 +53,17 @@ def fetch_single(symbol: str) -> dict | None:
         hist = ticker.history(period="5d")
         sparkline = [safe(v) for v in hist["Close"].tolist()] if not hist.empty else []
         sparkline = [v for v in sparkline if v != 0]
-        info = ticker.info
         return {
             "symbol": symbol,
-            "name": info.get("shortName", symbol),
+            "name": fi.currency and symbol or symbol,
             "price": safe(last),
             "high": safe(fi.day_high),
             "low": safe(fi.day_low),
             "change": safe(change),
             "change_pct": safe(change_pct),
-            "volume": info.get("regularMarketVolume") or 0,
-            "market_cap": info.get("marketCap") or 0,
-            "sector": info.get("sector", "Other"),
+            "volume": int(fi.three_month_average_volume or 0),
+            "market_cap": int(fi.market_cap or 0),
+            "sector": "Other",
             "sparkline": sparkline,
         }
     except Exception as e:
