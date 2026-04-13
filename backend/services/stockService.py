@@ -1,11 +1,16 @@
 import yfinance as yf
 import math
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 TICKERS = [
     "AAPL", "GOOGL", "TSLA", "MSFT", "AMZN", "META", "NVDA", "NFLX", "AMD", "INTC",
     "JPM", "BAC", "V", "MA", "DIS", "XOM", "COIN", "PYPL", "SHOP", "CRM"
 ]
+
+# Cache — refresh every 5 minutes
+_cache = {"data": [], "ts": 0}
+CACHE_TTL = 300  # 5 minutes
 
 def safe(val, decimals=2):
     if val is None or (isinstance(val, float) and math.isnan(val)):
@@ -71,10 +76,22 @@ def fetch_single(symbol: str) -> dict | None:
         return None
 
 def get_multiple_stocks(tickers=None):
+    global _cache
     symbols = tickers if tickers else TICKERS
+
+    # Return cache if fresh and fetching all stocks
+    if not tickers and _cache["data"] and (time.time() - _cache["ts"]) < CACHE_TTL:
+        return _cache["data"]
+
     with ThreadPoolExecutor(max_workers=10) as executor:
         results = list(executor.map(fetch_single, symbols))
-    return [r for r in results if r]
+    data = [r for r in results if r]
+
+    # Update cache only for full fetch
+    if not tickers:
+        _cache = {"data": data, "ts": time.time()}
+
+    return data
 
 def get_chart_data(symbol: str, period: str = "1mo") -> list:
     import math
