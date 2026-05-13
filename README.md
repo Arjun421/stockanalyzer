@@ -73,7 +73,7 @@ A hybrid multi-agent system that analyzes any stock symbol and returns a structu
 - Click to open chart
 - Persistent across sessions
 
----
+
 
 ## Tech Stack
 
